@@ -1,0 +1,102 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SemVer without the v prefix, for example 0.4.0"
+        required: true
+        type: string
+      gallery_source_ref:
+        description: "Commit, branch, or tag containing the complete gallery GIF/WebP media"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  verify-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+      - run: npm ci --ignore-scripts
+      - run: test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - run: python -m unittest discover -s tests -v
+      - run: npm test
+      - run: npm audit --audit-level=high
+      - run: python scripts/check_repository_policy.py
+      - run: python scripts/style_selector.py --verify-only
+      - run: python scripts/build_gallery_provenance.py --verify-only
+      - run: python scripts/check_benchmark.py
+      - name: Validate version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import os, re
+          value = os.environ["RELEASE_VERSION"]
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", value):
+              raise SystemExit("version must be SemVer without a v prefix")
+          import json
+          package_version = json.load(open("package.json", encoding="utf-8"))["version"]
+          if package_version != value:
+              raise SystemExit(f"package.json version {package_version!r} does not match release input {value!r}")
+          notes = open("RELEASE_NOTES.md", encoding="utf-8").read()
+          if not re.search(rf"^# Motion Sticker Pack v{re.escape(value)}$", notes, re.MULTILINE):
+              raise SystemExit("RELEASE_NOTES.md has no matching top-level release heading")
+          PY
+
+  publish:
+    needs: verify-main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Package full gallery media
+        env:
+          GALLERY_SOURCE_REF: ${{ inputs.gallery_source_ref }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          gallery_tmp="$(mktemp -d)"
+          trap 'rm -rf "$gallery_tmp"' EXIT
+          git archive --format=tar "$GALLERY_SOURCE_REF" gallery/styles | tar -x -C "$gallery_tmp"
+          python scripts/build_gallery_release.py \
+            --source-root "$gallery_tmp/gallery/styles" \
+            --index gallery/index.json \
+            --manifest gallery/release-manifest.json \
+            --output "motion-sticker-pack-gallery-v${RELEASE_VERSION}.zip"
+      - name: Create tag and release from verified main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          gh release create "v${RELEASE_VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "$(git rev-parse HEAD)" \
+            --title "v${RELEASE_VERSION}" \
+            --generate-notes \
+            "motion-sticker-pack-gallery-v${RELEASE_VERSION}.zip"

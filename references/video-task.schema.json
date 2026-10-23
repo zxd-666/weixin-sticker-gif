@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/motion-sticker-pack/video-task.schema.json",
+  "title": "weixin-sticker-gif image-to-video task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "operation",
+    "input_image",
+    "layout_file",
+    "prompt_file",
+    "approval_file",
+    "output_directory"
+  ],
+  "properties": {
+    "$schema": {"type": "string"},
+    "version": {"const": 1},
+    "operation": {"const": "image-to-video"},
+    "required_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "prefer_capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "require_alpha": {"type": "boolean"},
+    "allow_key_background": {"type": "boolean"},
+    "key_color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+    "provider_key_colors": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z0-9][a-z0-9-]*$": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"}
+      },
+      "additionalProperties": false
+    },
+    "provider_input_images": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z0-9][a-z0-9-]*$": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "screen_selection": {"type": "object"},
+    "safe_grid_scale": {"type": "number", "minimum": 0.75, "maximum": 0.95},
+    "min_guard_fraction": {"type": "number", "minimum": 0.05, "maximum": 0.20},
+    "max_foreground_bbox_fraction": {"type": "number", "minimum": 0.60, "maximum": 0.75},
+    "motion_active_seconds": {"type": "number", "minimum": 0.5, "maximum": 4.0},
+    "loop_min_seconds": {"type": "number", "minimum": 0.5, "maximum": 5.0},
+    "loop_max_seconds": {"type": "number", "minimum": 0.5, "maximum": 6.0},
+    "allow_fallback": {"type": "boolean"},
+    "provider": {"type": "string", "pattern": "^(auto|[a-z0-9][a-z0-9-]*)$"},
+    "provider_chain": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}
+    },
+    "provider_selection_source": {"enum": ["production-settings", "task-override"]},
+    "provider_execution": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z0-9][a-z0-9-]*$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["duration_seconds", "resolution"],
+          "properties": {
+            "duration_seconds": {"type": "integer", "minimum": 1, "maximum": 30},
+            "resolution": {"enum": ["480p", "720p", "768p", "1080p", "2k"]}
+          }
+        }
+      }
+    },
+    "connection_file": {"type": "string", "minLength": 1},
+    "subject": {
+      "type": "object", "additionalProperties": false, "required": ["type"],
+      "properties": {
+        "type": {"enum": ["real-person", "fictional", "unknown"]},
+        "seedance_asset": {"$ref": "portrait-eligibility.schema.json"}
+      }
+    },
+    "input_asset_uri": {"type": "string", "pattern": "^asset://[A-Za-z0-9_-]+$"},
+    "input_image": {"type": "string", "minLength": 1},
+    "layout_file": {"type": "string", "minLength": 1},
+    "prompt_file": {"type": "string", "minLength": 1},
+    "approval_file": {"type": "string", "minLength": 1},
+    "output_directory": {"type": "string", "minLength": 1},
+    "production_settings_file": {"type": "string", "minLength": 1},
+    "attempt_ledger_file": {"type": "string", "minLength": 1},
+    "artifact_manifest_file": {"type": "string", "minLength": 1},
+    "duration_seconds": {"type": "number", "minimum": 1, "maximum": 30},
+    "provider_duration_seconds": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[a-z0-9][a-z0-9-]*$": {"type": "integer", "minimum": 1, "maximum": 30}
+      }
+    },
+    "timeout_seconds": {"type": "number", "minimum": 30, "maximum": 3600},
+    "max_output_bytes": {"type": "integer", "minimum": 1024},
+    "max_input_image_bytes": {"type": "integer", "minimum": 1024},
+    "aspect_ratio": {"type": "string", "pattern": "^(source|adaptive|[1-9][0-9]*:[1-9][0-9]*)$"},
+    "resolution": {"type": "string", "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"},
+    "fps": {"type": "integer", "minimum": 1, "maximum": 60},
+    "poll_interval_ms": {"type": "integer", "minimum": 100, "maximum": 60000},
+    "max_retries": {"type": "integer", "minimum": 0, "maximum": 3}
+  }
+}

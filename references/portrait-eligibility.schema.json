@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "User-verified Seedance portrait eligibility (not a live platform attestation)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["uri", "verified_by_user", "verified_at", "asset_status", "authorization_status", "valid_until", "source_sha256", "connection_sha256", "reference_mode_confirmed"],
+  "properties": {
+    "uri": {"type": "string", "pattern": "^asset://[A-Za-z0-9_-]+$"},
+    "verified_by_user": {"const": true},
+    "verified_at": {"type": "string", "format": "date-time"},
+    "asset_status": {"const": "Active"},
+    "authorization_status": {"const": "accepted"},
+    "reference_mode_confirmed": {"const": true},
+    "valid_until": {"type": "string", "format": "date-time"},
+    "source_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "connection_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

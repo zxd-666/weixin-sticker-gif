@@ -1,0 +1,79 @@
+# OS / editor
+.DS_Store
+**/.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Secrets and local env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+mcp_credentials.json
+auth.json
+.envrc
+*.p8
+*.p12
+*.jks
+*.keystore
+secrets/
+
+# Python / Node
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+dist/
+
+# Local provider config (machine paths, never commit)
+video-providers.json
+**/video-providers.json
+!assets/video-providers.example.json
+
+# Accidental dumps at the skill root
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.gif
+/*.mp4
+/*.zip
+output/
+raw-video/
+delivered/
+
+# Root job JSON dumps (also live under works/<character>/)
+/layout.json
+/layout-overlay.png
+/static-sheet.png
+/static-prompt.json
+/tile-plan.json
+/job-state.json
+/prompts.json
+/capabilities.json
+/route.json
+/video-result.json
+/video-task.json
+/grok-build-result.json
+/video-route-validation.json
+
+# Legacy shared folder
+work/
+
+# Local development links and generated promo caches
+/AGENTS.md
+/motion-sticker-pack
+/promo-materials/
+/promo-x-4x5/
+/promo-v020/
+/examples/
+/works/
+promo-x-4x5/.waveform-cache/
+promo-x-4x5/assets/audio/*.wav
+
+# Per-character generated assets (keep the convention README only)
+.release-assets/
+punk-assets/

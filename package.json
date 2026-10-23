@@ -1,0 +1,29 @@
+{
+  "name": "weixin-sticker-gif",
+  "version": "0.3.1",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "description": "Agent Skill for animated WeChat sticker albums from a subject or reference image",
+  "keywords": [
+    "agent-skills",
+    "stickers",
+    "image-to-video",
+    "grok"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test tests-node/*.test.mjs",
+    "video:gateway": "node scripts/video_gateway.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/alibaba": "2.0.35",
+    "@ai-sdk/bytedance": "2.0.33",
+    "@ai-sdk/fal": "3.0.31",
+    "@ai-sdk/klingai": "4.0.32",
+    "@ai-sdk/xai": "4.0.44",
+    "ai": "7.0.79"
+  }
+}

@@ -1,0 +1,7 @@
+interface:
+  display_name: "weixin-sticker-gif｜微信动态表情包"
+  short_description: "确认主体后制作动态表情，并将横幅封面图标等素材一起打包"
+  default_prompt: "用 $weixin-sticker-gif 根据我的主体或参考图制作动态微信表情。先只生成一张主体图给我确认；确认后完成 GIF、横幅、封面、图标和赞赏素材，再一起打包。额外付费先告诉我。"
+
+policy:
+  allow_implicit_invocation: true
