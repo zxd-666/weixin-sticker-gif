@@ -16,6 +16,21 @@ These existing public GIFs are 240×240, looping, and each under 500,000 bytes. 
 
 Private reference-based tests also produced two football samples and a locally validated eight-sticker daily-life album with supporting assets. Their media is not included in this public repository. Local validation does not imply WeChat platform approval.
 
+## Quick start (Codex)
+
+Install the complete skill (Python 3 and Node.js 22+ required):
+
+```bash
+mkdir -p "$HOME/.codex/skills"
+git clone https://github.com/zxd-666/weixin-sticker-gif.git "$HOME/.codex/skills/weixin-sticker-gif"
+cd "$HOME/.codex/skills/weixin-sticker-gif"
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+npm ci --ignore-scripts
+```
+
+In a new Codex chat, ask `$weixin-sticker-gif: Make eight everyday animated WeChat stickers from my attached character. Show me one subject image first.` The first expected result is an image for approval; video generation and packaging follow only after the required checks. Other agents can install the complete repository using their own Skill mechanism.
+
 ## Workflow
 
 1. Provide a subject or reference image, theme, and 8–24 expressions or actions. Smaller sample requests are also supported.
@@ -30,3 +45,7 @@ The [Chinese README](README.md#制作流程) contains the Mermaid diagram, a sam
 ## License
 
 Source-available for noncommercial use. Original contributions and modifications are offered under [PolyForm Noncommercial 1.0.0](LICENSE); commercial use requires separate permission. Previously MIT-licensed portions retain their original rights and copyright notice in [LICENSE.upstream](LICENSE.upstream). This noncommercial restriction does not revoke those existing MIT rights. Rights in likenesses, trademarks, third-party models, and generated media may require separate permission. This project is not OSI open source because OSI open source permits commercial use.
+
+## Contact
+
+ZhangZhang Lab · [GitHub](https://github.com/zxd-666) · [Xiaohongshu](https://xhslink.cn/o/7DSli2Fl3Vb)

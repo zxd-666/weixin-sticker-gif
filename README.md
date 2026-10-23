@@ -2,7 +2,7 @@
 
 **从一个主体或一张参考图，制作一套可交付的微信动态表情包。** 这个独立 Agent Skill 先生成 **一张主体图**供你确认，再围绕同一角色制作动作首帧、逐张生成视频、转成循环 GIF，最后补齐横幅、封面、图标和赞赏素材，打包成中文命名的 ZIP。
 
-[制作流程](#制作流程) · [效果示例](#效果示例) · [如何使用](#如何使用) · [许可与来源](#许可与来源) · [English](README.en.md)
+[效果示例](#效果示例) · [如何使用](#如何使用) · [制作流程](#制作流程) · [许可与来源](#许可与来源) · [English](README.en.md)
 
 ## 它能做什么
 
@@ -25,6 +25,32 @@
 我们还用真人参考图做过 **2 张足球动态样片**，并用卡通人物完成过 **8 张日常主题 GIF、五类附加素材和本地 ZIP 校验**。这批素材来自私人参考图，当前未放进公开仓库；上述狐狸案例是公开可看的效果样例。8 张专辑的本地文件校验不等于微信平台审核通过，也不等于所有视频模型都已完成真实端到端验证。
 
 更多静态风格探索与处理证据见 [风格画廊](gallery/README.md)。
+
+## 如何使用
+
+以 Codex 为例，安装完整仓库和本地处理依赖（需要 Python 3、Node.js 22+）：
+
+```bash
+mkdir -p "$HOME/.codex/skills"
+git clone https://github.com/zxd-666/weixin-sticker-gif.git "$HOME/.codex/skills/weixin-sticker-gif"
+cd "$HOME/.codex/skills/weixin-sticker-gif"
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+npm ci --ignore-scripts
+```
+
+在新的 Codex 对话中使用下面的请求；预期先收到**一张主体图**供确认，确认后才继续生成动作和 GIF。其他支持本地 Skill 的 Agent 可以按各自方式安装完整仓库。
+
+```text
+用 weixin-sticker-gif，以附件人物为主体，做 8 张日常主题微信动态表情：
+收到、大笑、抱抱、谢谢、加油、惊讶、委屈、晚安。
+先只生成一张主体图给我确认。最终保留房间场景，不要抠背景。
+优先使用当前 Agent 的视频能力；如果需要额外付费，先告诉我费用。
+```
+
+也可指定“透明底”“先做两张样片”或某个视频模型。API Key 不写进 Skill、提示词或仓库；需要 API 时，在本机按 [连接说明](references/video-connections.md) 配置。已登录不等于有生成权限，额外付费、重试和换模型都要先明确费用与授权。
+
+Agent 执行入口见 [SKILL.md](SKILL.md)；脚本与更多细节见 [流程总览](references/workflow-map.md)。
 
 ## 制作流程
 
@@ -75,29 +101,6 @@ flowchart TD
 
 主表情必须同为动态 GIF、240×240、每张不超过 500,000 字节，并设置循环；主题文件名为互不重复的 1–4 字中文。赞赏图默认成对制作，用户明确不要时两张均省略。附加素材的规格、命名和校验边界见 [投稿素材与打包](references/album-submission-assets.md)。最终仍需人工查看角色一致性、动作差异、留白、文字和边缘；微信投稿以当时平台页面要求与审核结果为准。
 
-## 如何使用
-
-将本仓库作为 `weixin-sticker-gif` Skill 提供给支持本地 Skill 的 Agent，在对话中给出需求即可；具体安装方式取决于所用 Agent。示例：
-
-```text
-用 weixin-sticker-gif，以附件人物为主体，做 8 张日常主题微信动态表情：
-收到、大笑、抱抱、谢谢、加油、惊讶、委屈、晚安。
-先只生成一张主体图给我确认。最终保留房间场景，不要抠背景。
-优先使用当前 Agent 的视频能力；如果需要额外付费，先告诉我费用。
-```
-
-也可指定“透明底”“先做两张样片”或某个视频模型。API Key 不写进 Skill、提示词或仓库；需要 API 时，在本机按 [连接说明](references/video-connections.md) 配置。已登录不等于有生成权限，额外付费、重试和换模型都要先明确费用与授权。
-
-开发或本地运行脚本时，可在仓库目录创建 Python 虚拟环境并安装依赖：
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-npm ci --ignore-scripts
-```
-
-Agent 执行入口见 [SKILL.md](SKILL.md)；脚本与更多细节见 [流程总览](references/workflow-map.md)。
-
 ## 当前验证范围
 
 - 公共 GIF 案例可预览；本 README 展示的三张满足 240×240、循环和 500KB 本地检查。早期九宫格案例中另有一张超过当前 500KB 门槛，因此不把九张整体宣称为投稿就绪。
@@ -107,3 +110,7 @@ Agent 执行入口见 [SKILL.md](SKILL.md)；脚本与更多细节见 [流程总
 ## 许可与来源
 
 本项目**源码公开，限非商业使用**。本项目新增与改造的代码和文档按 [PolyForm Noncommercial 1.0.0](LICENSE) 提供；商用须另行取得权利人许可。它不属于 OSI 定义的“开源软件”，因为该定义允许商业使用。项目沿用的原有 MIT 代码与文档仍按其原授权使用；本项目的非商业条款**不能撤销这部分已授予的 MIT 权利**。非商业条款见 [LICENSE](LICENSE)，原 MIT 文本及版权声明见 [LICENSE.upstream](LICENSE.upstream)。角色肖像、商标、第三方模型和生成媒体的使用权请分别确认。
+
+## 联系
+
+张张实验室 · [GitHub](https://github.com/zxd-666) · [小红书](https://xhslink.cn/o/7DSli2Fl3Vb)
