@@ -1,43 +1,15 @@
 # Repository maintenance
 
-## Media policy
+## Public media
 
-Git contains compact, reviewable style evidence under `gallery/styles/`: one original 240×240 static PNG, one original 240×240 animated GIF, layout, route, processing report, and provenance per verified style. Full GIF/WebP gallery media is also packaged as a versioned Release asset; full sticker packs, promotional renders, raw videos, ZIPs, and character workspaces must not be committed.
+Keep compact, reviewable style examples in `gallery/styles/` and the three GIF previews used by the README. Do not commit complete sticker workspaces, raw videos, private reference images, finished album ZIPs, or credentials. The tracked media budget is 12 MiB.
 
-CI enforces:
+`scripts/check_repository_policy.py` checks the README sections and previews, rejects tracked files under `examples/`, `promo-v020/`, and `works/`, enforces the media budget, and requires the release workflow. The Python and Node suites, style checks, and benchmarks run in CI.
 
-- README and README.en remain between 150 and 220 lines;
-- `examples/`, `promo-v020/`, and `works/` are not tracked;
-- compact tracked media stays below 12MiB;
-- full gallery media is supplied through the versioned Release asset named by `gallery/release-manifest.json`;
-- the CI badge and release gate remain present;
-- 12–16 style entries pass the real-nine-cell evidence validator.
+## Licensing and provenance
 
-## Legacy gallery archive
-
-The former tracked `examples/` and `promo-v020/` trees are preserved in:
-
-- Release: [v0.2.0](https://github.com/kobingogo/motion-sticker-pack/releases/tag/v0.2.0)
-- Asset: [motion-sticker-pack-legacy-gallery-2026-09.zip](https://github.com/kobingogo/motion-sticker-pack/releases/download/v0.2.0/motion-sticker-pack-legacy-gallery-2026-09.zip)
-- Size: 218,353,710 bytes
-- SHA-256: `6befbb8e2ee29aa34981e5586cb988d93052190a90c70cfac92244db0696c178`
-
-The archive was built with `git archive` from commit `0702d22`, so it contains exactly the tracked versions.
+New contributions use [PolyForm Noncommercial 1.0.0](../../LICENSE). Previously MIT-licensed portions retain their original license and copyright notice in [LICENSE.upstream](../../LICENSE.upstream). Do not remove provenance records from gallery examples or imply that third-party reference images and model outputs are covered by the code license.
 
 ## Releases
 
-Official tags/releases are created only through `.github/workflows/release.yml`. The workflow checks out `main`, runs the complete Python/Node/policy suite, validates SemVer, and only then creates the tag and GitHub Release from that verified commit. A failed verification job cannot reach the publish job.
-
-The release workflow requires a source ref that still contains the complete gallery media, packages it with `scripts/build_gallery_release.py`, and attaches `motion-sticker-pack-gallery-v{version}.zip` to the Release. Protect `main` with required `ci / test (3.10)` and `ci / test (3.12)` checks. Direct releases and hand-created version tags are outside the supported process.
-
-## History-slimming evaluation
-
-Before this cleanup, loose Git objects occupied roughly 448MiB and historical blobs included several 8–21MiB videos plus many multi-megabyte WebPs. Removing files from the current tree improves fresh checkout HEAD size but does not remove historical objects.
-
-Options:
-
-1. **No rewrite** — safest for existing forks and tags; historical clone remains large.
-2. **Git LFS migration** — keeps file history semantics but requires LFS storage/bandwidth and rewrites affected commits.
-3. **`git filter-repo` purge** — smallest repository, but rewrites every affected commit/tag and requires coordinated force-push plus fork re-cloning.
-
-Recommendation: keep the current no-rewrite cleanup for V0.3, measure fresh clone and pack size after normal server GC, then schedule a separately announced `git filter-repo` migration only if the packed clone remains above 150MiB. Preserve a mirror bundle and the legacy Release asset before any rewrite. Do not perform history rewriting as part of a feature release.
+Use `.github/workflows/release.yml` for tagged releases. It verifies `main` before publishing and needs a source ref with the full gallery media when a gallery archive is attached. Check the version in `package.json`, the top heading in `RELEASE_NOTES.md`, and `gallery/release-manifest.json` before running it. Direct tags and manually assembled release archives bypass these checks.
