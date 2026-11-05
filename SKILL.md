@@ -1,23 +1,23 @@
 ---
 name: weixin-sticker-gif
-description: Create animated WeChat sticker albums and samples from a subject or reference. Approve one subject image first, then generate looping GIFs and a complete standalone album package with banner, cover, icon, and optional paired reward images.
+description: Create animated WeChat sticker albums and samples from a subject or reference. Approve one subject image first, prefer GPT Image 2.6 direct GIFs, and deliver a complete album with banner, cover, icon, and optional paired reward images.
 ---
 
 # weixin-sticker-gif｜微信动态表情包
 
-Create a usable animated sticker pack, not merely a video preview. Preserve the supplied character identity and produce independently looping stickers in the confirmed background mode, a machine-readable report, and a ZIP.
+Create a usable animated sticker pack. Prefer direct GPT Image 2.6 GIF generation when its exact GIF capability and account access are verified; keep the independent-video path for unsuitable or failed items. Preserve character identity and deliver independently looping stickers in the confirmed background mode, a machine-readable report, and a ZIP.
 
 ## 默认整套入口
 
-主体锚图只用于确认角色的身份、造型和风格；不要要求它包含最终场景，也不要把场景或背景模式作为确认主体图的附加条件。用户明确要场景、原背景或有底色时用 `opaque`，完整场景可以在后续动作首帧已有，也可以由视频模型按提示词生成；明确要透明底/去背时用 `transparent`。若用户没说明、且无法从任务判断最终 GIF 是否应有背景，等主体确认后、制作动作首帧或视频前再单独确定，不自行解释成去背。整套用 `album_workflow.py plan --background-mode transparent|opaque` 记录最终输出模式，后续提示词、视频任务和打包均须匹配。样片同样适用。
+主体锚图只用于确认角色的身份、造型和风格；不要要求它包含最终场景，也不要把场景或背景模式作为确认主体图的附加条件。用户明确要场景、原背景或有底色时用 `opaque`；明确要透明底/去背时用 `transparent`。若用户没说明、且无法从任务判断最终 GIF 是否应有背景，等主体确认后、生成动作 GIF 或首帧前再单独确定。整套用 `album_workflow.py plan --background-mode transparent|opaque` 记录最终输出模式，直出 GIF、视频回退和打包均须匹配。样片同样适用。
 
-本 Skill 可在 Codex 以外的 Agent 中使用。先检查**当前正在运行的 Agent**是否有可调用的图像生成和“参考图→视频”能力；能做时优先在同一 Agent 内完成主体锚图、动作首帧与视频，并确认其费用/额度，不因本 Skill 的示例写了 `image_gen` 就强制换工具或索取 Key。若当前 Agent 无法图生视频，再发现已登录/已配置的外部路线，向用户说明可用性与费用并确定合适模型；只有确需 API 方式时才引导配置相应 Key。工具存在或账号已登录均不等于具备图生视频权限。记录实际工具 ID、输入能力、输出和费用状态，所有后处理与打包继续在本 Skill 内完成。
+本 Skill 可在 Codex 以外的 Agent 中使用。先检查**当前正在运行的 Agent**是否有显式可调用的 Images 2.6 GIF 能力：准确模型 ID、`gif` 输出和原文件保存能力；再核对账号权限与费用。具备时先用它逐张生成 GIF，省去动作首帧、视频和视频转 GIF。没有显式 GIF 参数或实际返回 PNG 的普通生图工具不算直出；如已配置并获费用授权，可用本 Skill 的 `generate_image_gif.py` 调用 Image API。两者不可用而已登录的 ChatGPT GIF 界面可用时，可逐张经界面生成并下载，记录为界面路线；不冒充已验证的 API 模型 ID。直出路线均不可用时再检查“参考图→视频”能力。不要为了示例中的工具名强制换 Agent 或索取 Key。记录实际工具 ID、输入能力、输出和费用状态，所有后处理与打包继续在本 Skill 内完成。详见 [Images 2.6 直出路线](references/direct-gif-workflow.md)。
 
 透明底不等于绿幕。主体锚图优先要真实 Alpha 或容易分离的干净背景；若主体包含绿色、蓝色等大块颜色，静帧及视频都先检查色键与主体的像素距离，使用高反差的品红/蓝/青等纯色幕布（`compile_static_prompt.py --key-color`、`prepare_workflow.py` 的自动色键或 `--key-color`）。不能确定能分离时先停止并换色/重做素材，不把主体本色当背景抠掉。保留场景模式完全不使用色键。当前 Grok 图生视频适配器在透明底路线可接受经检查的非绿色色键；若模型不能稳定保持指定纯色，QC 会拒绝该视频，不自动再次付费生成。
 
 先读 [流程总览](references/workflow-map.md) 选择整套、少量样片或现成素材入口；再读当前入口的详细操作文档。
 
-用户要“一键做成套”或批量图生视频时，先读 [references/full-album-workflow.md](references/full-album-workflow.md)。**所有从主体描述或参考图开始的新生成任务，先只生成一张主体锚图，展示这张具体图片并等待用户明确确认；确认前禁止生成任何动作静帧、整格图、关键姿势或视频。** 用户要求“一键”“直接完成”也不能跳过这个停点。确认后再生成 8–24 张动作各异的独立静态首帧，逐张调用选定的视频模型，分别转 GIF。所有 GIF 达标后，按本 Skill 的 [附加素材与打包规则](references/album-submission-assets.md) 制作横幅、封面、图标及默认成对的赞赏图，再将全部图片验收并打包为中文命名的 ZIP。运行 `scripts/album_workflow.py plan` 固定数量、动作和调用预算。外部适配器路线逐张准备任务，`preflight` 全部账号、素材与费用确认，`authorize-batch` 绑定用户确认的整套费用上限，`run` 顺序执行；当前 Agent 原生视频路线由 Agent 顺序调用视频工具，并逐张用 `execute_video_route.py --native-video` 登记和验收，`album_workflow.py run` 不会调用 Agent 工具。两条路线均须分别转 GIF，最后 `pack --asset-dir ...` 只接受完整合格的 GIF 和附加素材。当前下方的九宫格整格视频流程用于现有网格素材或用户明确选择的整格路线；样片按用户指定的数量做独立 1×1 任务，不代表成套独立视频已完成。
+用户要“一键做成套”时，先读 [references/full-album-workflow.md](references/full-album-workflow.md) 和 [直出 GIF 路线](references/direct-gif-workflow.md)。**所有从主体描述或参考图开始的新生成任务，先只生成一张主体锚图，展示这张具体图片并等待用户明确确认；确认前禁止生成任何动作 GIF、动作静帧、整格图、关键姿势或视频。** 用户要求“一键”“直接完成”也不能跳过这个停点。确认后按计划逐张优先生成 Images 2.6 GIF，验收身份、动作、背景和首尾循环；仅对不适合或不合格的项按已核对费用回退到独立首帧→视频→GIF。不要预先为整套生成静帧与视频。所有 GIF 达标后，按 [附加素材与打包规则](references/album-submission-assets.md) 制作横幅、封面、图标及默认成对的赞赏图，再打包为中文命名 ZIP。`album_workflow.py plan` 固定数量、动作和两条路线的预算；`preflight/authorize-batch/run` 仅用于实际启用的外部视频回退批次，不能冒充直出 GIF 调用。`pack --asset-dir ...` 接受同背景模式下来源不同但均合格的 GIF。当前下方九宫格整格视频流程仅用于现有网格素材或用户明确选择的整格路线。
 
 成品的边缘质量按最终 240×240 GIF 判断，不能只看源视频或连续 Alpha 的 WebP。绿幕与主体同色时先查主体内部 Alpha：固定绿幕只在识别出的色键区域修正透明度，不按颜色全域去绿；GIF 阈值也不能把主体本色计作漏色。出现轮廓毛刺时，先从已生成的 RGBA 帧本地修边并重导；若透明 GIF 的硬边仍不可接受，可在用户接受底色时额外交付柔边浅底版，并明确它是不透明的。`album_workflow.py pack` 按计划的 `background_mode` 验收：透明底需真实透明像素；保留背景需每帧完全不透明。同套不能混装。具体诊断、修复和两种版本的复检见 [references/output-contract.md](references/output-contract.md#240px-gif-边缘质量)。
 
@@ -25,7 +25,7 @@ Create a usable animated sticker pack, not merely a video preview. Preserve the 
 
 ## 单张样片与整格视频入口
 
-用户明确要样片时，仍须先只生成一张主体锚图、展示并等待确认，之后才按指定数量建立独立 1×1 图生视频任务；不因样片数量碰巧达到 8 张就当作整套。以下默认 3×3、先静态整格图再生成一段整格视频的规则只用于现成网格或用户明确选择的整格路线；若整格图也需新生成，同样先过主体图确认。成套独立图生视频以“默认整套入口”和其参考文档为准。各入口都沿用主体特征、已确认的背景模式、费用确认、凭据保护和最终质量检查的要求。
+用户明确要样片时，仍须先只生成一张主体锚图、展示并等待确认，之后按指定数量优先做独立直出 GIF；不因样片数量碰巧达到 8 张就当作整套。以下默认 3×3、先静态整格图再生成一段整格视频的规则只用于现成网格或用户明确选择的整格路线；若整格图也需新生成，同样先过主体图确认。各入口都沿用主体特征、背景模式、费用确认、凭据保护和最终质量检查的要求。
 
 ### IP identity and prompt principles
 
@@ -102,11 +102,11 @@ with the media by running `scripts/build_gallery_provenance.py --verify-only`.
 Legacy gallery cases are allowed only with an explicit `legacy-evidence-partial`
 status and a declared approval/manifest gap.
 
-## Routing behavior
+## Video fallback routing
 
-For new video jobs, follow [references/video-connections.md](references/video-connections.md): discover existing tools/accounts without generation, present separate login/video/eligibility/billing states, obtain the user's model/account selection, and prepare with `--connection`. Use `configure_video.py` for model selection, hidden Key input into the system keychain, and task-bound execution approval. MiniMax H3 and Wan 3.0 use the native HTTP adapter; Grok retains its existing login route. Confirm extra charges with the user before creating paid authorization. Pass `--execution-approval` to the executor. Seedance 2.0/2.5 requires an explicit subject classification; real people additionally require an accepted, Active, unexpired platform portrait asset bound to the approved image and selected connection. Treat control-panel attestation as user-verified eligibility, not a live platform check. Offline adapter tests do not prove paid account access or output quality.
+Only enter this section for an item that cannot use direct GIF or whose final GIF fails review. For new video jobs, follow [references/video-connections.md](references/video-connections.md): discover existing tools/accounts without generation, present separate login/video/eligibility/billing states, obtain the user's model/account selection, and prepare with `--connection`. Use `configure_video.py` for model selection, hidden Key input into the system keychain, and task-bound execution approval. MiniMax H3 and Wan 3.0 use the native HTTP adapter; Grok retains its existing login route. Confirm extra charges with the user before creating paid authorization. Pass `--execution-approval` to the executor. Seedance 2.0/2.5 requires an explicit subject classification; real people additionally require an accepted, Active, unexpired platform portrait asset bound to the approved image and selected connection. Treat control-panel attestation as user-verified eligibility, not a live platform check. Offline adapter tests do not prove paid account access or output quality.
 
-Use this fixed order unless the user explicitly selects a provider; a recorded connection takes precedence and disables automatic fallback:
+Within the video fallback route, use this order unless the user explicitly selects a provider; a recorded connection takes precedence and disables automatic fallback:
 
 1. callable native/local image-to-video capability;
 2. configured external providers that satisfy the task, in configured priority order;
@@ -124,7 +124,13 @@ For a Grok-mandated task, the route must be explicit (`provider: grok-build-loca
 
 ```bash
 python3 scripts/character_workspace.py --name '小黑猫'
+python3 scripts/album_workflow.py plan --name '小黑猫' --subject-description '黑猫，黄眼睛' --subject-type fictional --style '2D 手绘' --background-mode opaque --output works/小黑猫/album-plan.json
 python3 scripts/subject_anchor.py --image works/小黑猫/subject-anchor.png --output works/小黑猫/subject-anchor-approval.json --confirmed-by-user # 仅在展示该图并得到明确确认后
+python3 scripts/album_workflow.py bind-anchor --plan works/小黑猫/album-plan.json --image works/小黑猫/subject-anchor.png --approval works/小黑猫/subject-anchor-approval.json --output works/小黑猫/album-anchor.json
+# 主体锚图获确认后，按 references/direct-gif-workflow.md 写好 prompt.txt，再走首选直出路线
+python3 scripts/generate_image_gif.py --prompt-file works/小黑猫/gif/01/prompt.txt --output works/小黑猫/gif/01/source.gif --cost-confirmed # 仅在 API 已配置、GIF 权限和费用已确认时
+python3 scripts/direct_gif_to_sticker.py works/小黑猫/gif/01/source.gif works/小黑猫/final-gifs/01.gif --background-mode opaque
+# 以下为按需视频回退或现成九宫格流程，直出合格时不执行
 python3 scripts/compile_static_prompt.py --style 3d --expressions '🎸😍🥹😘🥰' --layout 3x3 --reference-image works/小黑猫/subject-anchor.png --output works/小黑猫/static-prompt.json
 python3 scripts/prepare_image_gen_call.py --static-prompt works/小黑猫/static-prompt.json --supported-argument prompt --supported-argument referenced_image_paths --output works/小黑猫/static-generation.json
 python3 scripts/normalize_static_sheet.py works/小黑猫/static-sheet-source.png works/小黑猫/static-sheet.png --report works/小黑猫/static-alpha.json

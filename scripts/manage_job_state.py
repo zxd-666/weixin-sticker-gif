@@ -85,7 +85,7 @@ def create_state(image: Path, layout: Path, static_prompt: Path | None, source_t
         if not direct_completion_authorized or album_plan is None or album_item is None:
             raise ValueError("album-generated requires the user's direct-completion instruction and album plan/item")
         plan = json.loads(album_plan.read_text(encoding="utf-8"))
-        if (plan.get("kind") != "independent-video-album-plan"
+        if (plan.get("kind") not in {"independent-video-album-plan", "independent-gif-album-plan"}
                 or album_item not in {item.get("id") for item in plan.get("items", [])}):
             raise ValueError("album item does not belong to the approved task plan")
     image_record = artifact(image)

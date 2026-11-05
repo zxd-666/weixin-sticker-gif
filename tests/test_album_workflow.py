@@ -16,7 +16,8 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from album_workflow import bind_anchor, build_plan, package, reactions_from_text, run_batch  # noqa: E402
+from album_workflow import (batch_preflight, bind_anchor, build_plan, package,
+                            reactions_from_text, run_batch)  # noqa: E402
 from manage_job_state import create_state, verify_state  # noqa: E402
 from subject_anchor import approve, verify_approval  # noqa: E402
 
@@ -80,7 +81,11 @@ class AlbumWorkflowTests(unittest.TestCase):
             plan, _ = self.make_plan(Path(temporary), ",".join(f"动作{i}" for i in range(10)))
             self.assertEqual(plan["count"], 10)
             self.assertEqual([g["layout"]["columns"] * g["layout"]["rows"] for g in plan["static_groups"]], [4, 4, 2])
-            self.assertEqual(plan["call_budget"]["video_calls"], 10)
+            self.assertEqual(plan["kind"], "independent-gif-album-plan")
+            self.assertEqual(plan["generation"]["preferred"], "gpt-image-2.6-gif")
+            self.assertEqual(plan["call_budget"]["direct_gif_calls"], 10)
+            self.assertEqual(plan["call_budget"]["video_calls"], 0)
+            self.assertEqual(plan["call_budget"]["fallback_video_calls_max"], 10)
             self.assertEqual(plan["call_budget"]["auxiliary_image_calls_max"], 5)
             self.assertEqual(plan["call_budget"]["extra_fee_status"], "unverified")
         with self.assertRaises(ValueError):
@@ -173,6 +178,15 @@ class AlbumWorkflowTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "费用确认"):
                     run_batch(root / "album-plan.json", root, approval)
                 execute.assert_not_called()
+
+    def test_new_plan_requires_explicit_video_fallback_items(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _, plan_path = self.make_plan(root)
+            with self.assertRaisesRegex(ValueError, "--items"):
+                batch_preflight(plan_path, root)
+            with self.assertRaisesRegex(ValueError, "编号重复"):
+                batch_preflight(plan_path, root, ["01", "01"])
 
     def test_one_click_static_state_is_bound_to_album_and_exact_image(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

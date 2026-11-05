@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan an independent-video sticker album and package only verified GIFs.
+"""Plan a direct-GIF-first sticker album and package only verified GIFs.
 
 This script never calls an image or video provider. The Skill uses the plan to
 drive generation and the pack command as its final, deterministic acceptance gate.
@@ -72,6 +72,7 @@ def build_plan(args: argparse.Namespace) -> dict:
     items = [
         {"id": f"{index:02d}", "reaction": reaction, "static_group": (index - 1) // 4 + 1,
          "static_cell": (index - 1) % 4 + 1,
+         "gif_job": f"gif/{index:02d}",
          "video_job": f"video/{index:02d}"}
         for index, reaction in enumerate(reactions, start=1)
     ]
@@ -82,12 +83,16 @@ def build_plan(args: argparse.Namespace) -> dict:
         for start in range(0, len(items), 4)
     ]
     return {
-        "version": 1, "kind": "independent-video-album-plan", "name": args.name.strip(),
+        "version": 2, "kind": "independent-gif-album-plan", "name": args.name.strip(),
         "subject": {"mode": source_mode, "description": args.subject_description,
                     "reference": source_record, "type": args.subject_type},
         "style": args.style.strip(), "count": len(items), "items": items, "static_groups": groups,
+        "generation": {"preferred": "gpt-image-2.6-gif", "fallback": "independent-video",
+                       "fallback_requires_recheck": True},
         "call_budget": {"subject_image_calls": 0 if source_mode == "approved-anchor" else 1,
-                        "static_sheet_calls": len(groups), "video_calls": len(items),
+                        "direct_gif_calls": len(items), "static_sheet_calls": 0,
+                        "video_calls": 0, "fallback_static_sheet_calls_max": len(groups),
+                        "fallback_video_calls_max": len(items),
                         "auxiliary_image_calls_max": 5,
                         "automatic_retries": 0, "extra_fee_status": "unverified"},
         "delivery": {"format": "GIF", "width": 240, "height": 240,
@@ -97,8 +102,14 @@ def build_plan(args: argparse.Namespace) -> dict:
 
 
 def validate_plan(plan: dict) -> None:
-    if plan.get("version") != 1 or plan.get("kind") != "independent-video-album-plan":
+    legacy = plan.get("version") == 1 and plan.get("kind") == "independent-video-album-plan"
+    direct = plan.get("version") == 2 and plan.get("kind") == "independent-gif-album-plan"
+    if not (legacy or direct):
         raise ValueError("不支持的整套任务清单")
+    if direct and plan.get("generation") != {"preferred": "gpt-image-2.6-gif",
+                                                  "fallback": "independent-video",
+                                                  "fallback_requires_recheck": True}:
+        raise ValueError("新任务清单缺少直出 GIF 优先路线")
     if plan.get("delivery", {}).get("background_mode", "transparent") not in {"transparent", "opaque"}:
         raise ValueError("任务清单的背景模式无效")
     items = plan.get("items")
@@ -112,7 +123,8 @@ def validate_plan(plan: dict) -> None:
         raise ValueError("任务清单编号不连续")
     if len({item.get("reaction") for item in items}) != len(items):
         raise ValueError("任务清单有重复动作")
-    if any(item.get("video_job") != f"video/{index:02d}"
+    if any((direct and item.get("gif_job") != f"gif/{index:02d}")
+           or item.get("video_job") != f"video/{index:02d}"
            or item.get("static_group") != (index - 1) // 4 + 1
            or item.get("static_cell") != (index - 1) % 4 + 1
            for index, item in enumerate(items, 1)):
@@ -238,12 +250,19 @@ def package(plan_path: Path, media_dir: Path, asset_dir: Path, output: Path, *,
     return {"output": str(target), "zip": str(zip_path), "files": len(members), **result}
 
 
-def batch_preflight(plan_path: Path, job_root: Path) -> tuple[dict, list[dict]]:
-    """Check every job and fee approval before the first external submission."""
+def batch_preflight(plan_path: Path, job_root: Path,
+                    item_ids: list[str] | None = None) -> tuple[dict, list[dict]]:
+    """Check only the selected video fallback jobs before external submission."""
     plan_path = plan_path.expanduser().resolve(strict=True)
     job_root = job_root.expanduser().resolve(strict=True)
     plan = read_json_object(plan_path)
     validate_plan(plan)
+    all_ids = [item["id"] for item in plan["items"]]
+    if plan["kind"] == "independent-gif-album-plan" and not item_ids:
+        raise ValueError("直出 GIF 优先计划的视频回退须用 --items 明确指定编号")
+    selected_ids = item_ids or all_ids
+    if len(selected_ids) != len(set(selected_ids)) or any(item_id not in all_ids for item_id in selected_ids):
+        raise ValueError("视频回退编号重复或不属于当前计划")
     anchor = read_json_object(job_root / "album-anchor.json")
     if (anchor.get("kind") != "album-anchor" or anchor.get("plan_sha256") != sha256(plan_path)
             or not Path(anchor.get("image", "")).is_file()
@@ -259,6 +278,8 @@ def batch_preflight(plan_path: Path, job_root: Path) -> tuple[dict, list[dict]]:
     currency = None
     approval_hashes = {}
     for item in plan["items"]:
+        if item["id"] not in selected_ids:
+            continue
         directory = job_root / item["video_job"]
         config_path = directory / "video-providers.json"
         task_path = directory / "video-task.json"
@@ -357,6 +378,7 @@ def batch_preflight(plan_path: Path, job_root: Path) -> tuple[dict, list[dict]]:
                       "task": task_path, "route": route, "approval": approval_path,
                       "result": result_path, "status": status})
     report = {"version": 1, "plan_sha256": sha256(plan_path), "count": len(ready),
+              "item_ids": [job["id"] for job in ready],
               "remaining_calls": sum(job["status"] == "ready" for job in ready),
               "estimated_extra_cost": paid_estimate, "maximum_extra_cost": paid_max,
               "currency": currency, "approval_sha256": approval_hashes,
@@ -366,10 +388,11 @@ def batch_preflight(plan_path: Path, job_root: Path) -> tuple[dict, list[dict]]:
 
 
 def authorize_batch(plan_path: Path, job_root: Path, output: Path, *, max_cost: float,
-                    currency: str | None, confirmed: bool) -> dict:
+                    currency: str | None, confirmed: bool,
+                    item_ids: list[str] | None = None) -> dict:
     if not confirmed:
         raise ValueError("批量生成需要用户明确确认整套费用上限")
-    report, _ = batch_preflight(plan_path, job_root)
+    report, _ = batch_preflight(plan_path, job_root, item_ids)
     if not math.isfinite(max_cost) or max_cost < report["maximum_extra_cost"] or max_cost < 0:
         raise ValueError("整套费用上限低于逐张确认的费用合计")
     if report["currency"] != currency or (currency is None and max_cost != 0):
@@ -377,7 +400,8 @@ def authorize_batch(plan_path: Path, job_root: Path, output: Path, *, max_cost: 
     value = {"version": 1, "kind": "album-execution-approval", "confirmed_by_user": True,
              "confirmed_at": datetime.now(timezone.utc).isoformat(),
              "plan_sha256": report["plan_sha256"], "approval_sha256": report["approval_sha256"],
-             "count": report["count"], "max_total_extra_cost": max_cost, "currency": currency}
+             "count": report["count"], "item_ids": report["item_ids"],
+             "max_total_extra_cost": max_cost, "currency": currency}
     output = output.expanduser().resolve()
     if output.exists():
         raise FileExistsError(f"拒绝覆盖整套费用确认：{output}")
@@ -386,8 +410,9 @@ def authorize_batch(plan_path: Path, job_root: Path, output: Path, *, max_cost: 
     return {"approval": str(output), **value}
 
 
-def run_batch(plan_path: Path, job_root: Path, batch_approval: Path) -> dict:
-    report, jobs = batch_preflight(plan_path, job_root)
+def run_batch(plan_path: Path, job_root: Path, batch_approval: Path,
+              item_ids: list[str] | None = None) -> dict:
+    report, jobs = batch_preflight(plan_path, job_root, item_ids)
     approval = read_json_object(batch_approval)
     try:
         age = (datetime.now(timezone.utc) - datetime.fromisoformat(approval["confirmed_at"])).total_seconds()
@@ -398,6 +423,7 @@ def run_batch(plan_path: Path, job_root: Path, batch_approval: Path) -> dict:
             or approval.get("plan_sha256") != report["plan_sha256"]
             or approval.get("approval_sha256") != report["approval_sha256"]
             or approval.get("count") != report["count"]
+            or approval.get("item_ids", report.get("item_ids")) != report.get("item_ids")
             or approval.get("currency") != report["currency"]
             or isinstance(approval.get("max_total_extra_cost"), bool)
             or not isinstance(approval.get("max_total_extra_cost"), (int, float))
@@ -418,7 +444,7 @@ def run_batch(plan_path: Path, job_root: Path, batch_approval: Path) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="规划整套独立视频表情，或验收并打包最终 GIF")
+    parser = argparse.ArgumentParser(description="规划直出 GIF 优先的动态表情，或验收并打包最终 GIF")
     sub = parser.add_subparsers(dest="action", required=True)
     p = sub.add_parser("plan")
     p.add_argument("--name", required=True)
@@ -448,16 +474,20 @@ def main() -> int:
         p = sub.add_parser(action)
         p.add_argument("--plan", type=Path, required=True)
         p.add_argument("--job-root", type=Path, required=True)
+        p.add_argument("--items", help="仅对这些编号执行视频回退，逗号分隔；新计划必填")
         if action == "run":
             p.add_argument("--batch-approval", type=Path, required=True)
     p = sub.add_parser("authorize-batch")
     p.add_argument("--plan", type=Path, required=True)
     p.add_argument("--job-root", type=Path, required=True)
+    p.add_argument("--items", help="仅授权这些视频回退编号，逗号分隔；新计划必填")
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--max-total-cost", type=float, required=True)
     p.add_argument("--currency", choices=["CNY", "USD"])
     p.add_argument("--confirmed-by-user", action="store_true", required=True)
     args = parser.parse_args()
+    selected_items = ([item.strip() for item in args.items.split(",")]
+                      if hasattr(args, "items") and args.items else None)
     if args.action == "plan":
         if not args.name.strip() or not args.style.strip():
             raise ValueError("主体名称和风格不能为空")
@@ -474,13 +504,13 @@ def main() -> int:
     elif args.action == "bind-anchor":
         result = bind_anchor(args.plan, args.image, args.output, args.approval)
     elif args.action == "preflight":
-        result, _ = batch_preflight(args.plan, args.job_root)
+        result, _ = batch_preflight(args.plan, args.job_root, selected_items)
     elif args.action == "authorize-batch":
         result = authorize_batch(args.plan, args.job_root, args.output,
                                  max_cost=args.max_total_cost, currency=args.currency,
-                                 confirmed=args.confirmed_by_user)
+                                 confirmed=args.confirmed_by_user, item_ids=selected_items)
     else:
-        result = run_batch(args.plan, args.job_root, args.batch_approval)
+        result = run_batch(args.plan, args.job_root, args.batch_approval, selected_items)
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
