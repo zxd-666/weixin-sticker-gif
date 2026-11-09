@@ -50,8 +50,13 @@ def reactions_from_text(value: str | None) -> list[str]:
 def build_plan(args: argparse.Namespace) -> dict:
     reactions = reactions_from_text(args.reactions)
     background_mode = args.background_mode
+    generation_mode = getattr(args, "generation_mode", "direct-gif")
     if background_mode not in {"transparent", "opaque"}:
         raise ValueError("须先确定表情背景模式：transparent 或 opaque")
+    if generation_mode not in {"direct-gif", "pose-atlas-local"}:
+        raise ValueError("不支持的生成路线")
+    if generation_mode == "pose-atlas-local" and background_mode != "transparent":
+        raise ValueError("姿态图集本地合成目前只支持透明底表情")
     if args.subject_description is not None and not args.subject_description.strip():
         raise ValueError("主体描述不能为空")
     source = args.reference_image or args.approved_anchor
@@ -87,10 +92,13 @@ def build_plan(args: argparse.Namespace) -> dict:
         "subject": {"mode": source_mode, "description": args.subject_description,
                     "reference": source_record, "type": args.subject_type},
         "style": args.style.strip(), "count": len(items), "items": items, "static_groups": groups,
-        "generation": {"preferred": "gpt-image-2.6-gif", "fallback": "independent-video",
+        "generation": {"preferred": ("pose-atlas-local" if generation_mode == "pose-atlas-local"
+                                     else "gpt-image-2.6-gif"), "fallback": "independent-video",
                        "fallback_requires_recheck": True},
         "call_budget": {"subject_image_calls": 0 if source_mode == "approved-anchor" else 1,
-                        "direct_gif_calls": len(items), "static_sheet_calls": 0,
+                        "direct_gif_calls": len(items) if generation_mode == "direct-gif" else 0,
+                        "pose_atlas_calls_max": len(items) if generation_mode == "pose-atlas-local" else 0,
+                        "static_sheet_calls": 0,
                         "video_calls": 0, "fallback_static_sheet_calls_max": len(groups),
                         "fallback_video_calls_max": len(items),
                         "auxiliary_image_calls_max": 5,
@@ -106,15 +114,23 @@ def validate_plan(plan: dict) -> None:
     direct = plan.get("version") == 2 and plan.get("kind") == "independent-gif-album-plan"
     if not (legacy or direct):
         raise ValueError("不支持的整套任务清单")
-    if direct and plan.get("generation") != {"preferred": "gpt-image-2.6-gif",
+    preferred = plan.get("generation", {}).get("preferred")
+    if direct and (preferred not in {"gpt-image-2.6-gif", "pose-atlas-local"}
+                   or plan.get("generation") != {"preferred": preferred,
                                                   "fallback": "independent-video",
-                                                  "fallback_requires_recheck": True}:
-        raise ValueError("新任务清单缺少直出 GIF 优先路线")
+                                                  "fallback_requires_recheck": True}):
+        raise ValueError("新任务清单缺少受支持的 GIF 生成路线")
+    if direct and preferred == "pose-atlas-local" and plan.get("delivery", {}).get("background_mode") != "transparent":
+        raise ValueError("姿态图集本地合成只支持透明底表情")
     if plan.get("delivery", {}).get("background_mode", "transparent") not in {"transparent", "opaque"}:
         raise ValueError("任务清单的背景模式无效")
     items = plan.get("items")
     if not isinstance(items, list) or not 8 <= len(items) <= 24 or plan.get("count") != len(items):
         raise ValueError("任务清单的表情数量须为 8–24")
+    if (direct and preferred == "pose-atlas-local"
+            and (plan.get("call_budget", {}).get("pose_atlas_calls_max") != len(items)
+                 or plan.get("call_budget", {}).get("direct_gif_calls") != 0)):
+        raise ValueError("姿态图集计划的图像调用上限不匹配")
     if (not isinstance(plan.get("name"), str) or not plan["name"].strip()
             or not isinstance(plan.get("style"), str) or not plan["style"].strip()
             or plan.get("subject", {}).get("type") not in {"real-person", "fictional", "unknown"}):
@@ -444,7 +460,7 @@ def run_batch(plan_path: Path, job_root: Path, batch_approval: Path,
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="规划直出 GIF 优先的动态表情，或验收并打包最终 GIF")
+    parser = argparse.ArgumentParser(description="规划动态表情生成路线，或验收并打包最终 GIF")
     sub = parser.add_subparsers(dest="action", required=True)
     p = sub.add_parser("plan")
     p.add_argument("--name", required=True)
@@ -456,6 +472,8 @@ def main() -> int:
     p.add_argument("--style", required=True)
     p.add_argument("--background-mode", choices=["transparent", "opaque"], required=True,
                    help="最终 GIF 透明底或保留/生成场景；主体锚图只确认主体，背景模式在动作或视频生成前确定")
+    p.add_argument("--generation-mode", choices=["direct-gif", "pose-atlas-local"], default="direct-gif",
+                   help="默认逐张直出 GIF；选 pose-atlas-local 时预算按每张最多一张姿态图集计算")
     p.add_argument("--reactions", help="逗号分隔 8–24 个动作；缺省为八个常用聊天动作")
     p.add_argument("--output", type=Path, required=True)
     p = sub.add_parser("pack")

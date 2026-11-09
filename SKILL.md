@@ -1,23 +1,23 @@
 ---
 name: weixin-sticker-gif
-description: Create animated WeChat sticker albums and samples from a subject or reference. Approve one subject image first, prefer GPT Image 2.6 direct GIFs, and deliver a complete album with banner, cover, icon, and optional paired reward images.
+description: Create animated WeChat sticker albums and samples from a subject or reference. Approve one subject image first, choose verified direct GIF or local pose-atlas animation, and deliver a complete album with banner, cover, icon, and optional paired reward images.
 ---
 
 # weixin-sticker-gif｜微信动态表情包
 
-Create a usable animated sticker pack. Prefer direct GPT Image 2.6 GIF generation when its exact GIF capability and account access are verified; keep the independent-video path for unsuitable or failed items. Preserve character identity and deliver independently looping stickers in the confirmed background mode, a machine-readable report, and a ZIP.
+Create a usable animated sticker pack. Use verified direct GIF generation by default; when transparent stickers and cost or control favor still images, offer local pose-atlas animation. Keep the independent-video path for unsuitable or failed items. Preserve character identity and deliver independently looping stickers in the confirmed background mode, a machine-readable report, and a ZIP.
 
 ## 默认整套入口
 
 主体锚图只用于确认角色的身份、造型和风格；不要要求它包含最终场景，也不要把场景或背景模式作为确认主体图的附加条件。用户明确要场景、原背景或有底色时用 `opaque`；明确要透明底/去背时用 `transparent`。若用户没说明、且无法从任务判断最终 GIF 是否应有背景，等主体确认后、生成动作 GIF 或首帧前再单独确定。整套用 `album_workflow.py plan --background-mode transparent|opaque` 记录最终输出模式，直出 GIF、视频回退和打包均须匹配。样片同样适用。
 
-本 Skill 可在 Codex 以外的 Agent 中使用。先检查**当前正在运行的 Agent**是否有显式可调用的 Images 2.6 GIF 能力：准确模型 ID、`gif` 输出和原文件保存能力；再核对账号权限与费用。具备时先用它逐张生成 GIF，省去动作首帧、视频和视频转 GIF。没有显式 GIF 参数或实际返回 PNG 的普通生图工具不算直出；如已配置并获费用授权，可用本 Skill 的 `generate_image_gif.py` 调用 Image API。两者不可用而已登录的 ChatGPT GIF 界面可用时，可逐张经界面生成并下载，记录为界面路线；不冒充已验证的 API 模型 ID。直出路线均不可用时再检查“参考图→视频”能力。不要为了示例中的工具名强制换 Agent 或索取 Key。记录实际工具 ID、输入能力、输出和费用状态，所有后处理与打包继续在本 Skill 内完成。详见 [Images 2.6 直出路线](references/direct-gif-workflow.md)。
+本 Skill 可在 Codex 以外的 Agent 中使用。默认直出路线先检查**当前正在运行的 Agent**是否有显式可调用的 Images 2.6 GIF 能力：准确模型 ID、`gif` 输出和原文件保存能力；再核对账号权限与费用。具备时可逐张直出 GIF。用户看重调用成本、指定图集方式，或直出 GIF 的透明度/身份不合格时，若图像工具能生成真正透明的连续姿态图，可按 [姿态图集本地合成](references/pose-atlas-local.md) 先试一张再扩大；轻动效可只用已确认单图本地生成。图集不调用视频模型，但图像生成仍可能计费，须核对实际账号费用。没有显式 GIF 参数或实际返回 PNG 的普通生图工具不算直出；如已配置并获费用授权，可用本 Skill 的 `generate_image_gif.py` 调用 Image API。两者不可用而已登录的 ChatGPT GIF 界面可用时，可逐张经界面生成并下载，记录为界面路线；不冒充已验证的 API 模型 ID。所选静图／直出路线不可用或不合格时再检查“参考图→视频”能力。不要为了示例中的工具名强制换 Agent 或索取 Key。记录实际工具 ID、输入能力、输出和费用状态，所有后处理与打包继续在本 Skill 内完成。详见 [Images 2.6 直出路线](references/direct-gif-workflow.md)。
 
 透明底不等于绿幕。主体锚图优先要真实 Alpha 或容易分离的干净背景；若主体包含绿色、蓝色等大块颜色，静帧及视频都先检查色键与主体的像素距离，使用高反差的品红/蓝/青等纯色幕布（`compile_static_prompt.py --key-color`、`prepare_workflow.py` 的自动色键或 `--key-color`）。不能确定能分离时先停止并换色/重做素材，不把主体本色当背景抠掉。保留场景模式完全不使用色键。当前 Grok 图生视频适配器在透明底路线可接受经检查的非绿色色键；若模型不能稳定保持指定纯色，QC 会拒绝该视频，不自动再次付费生成。
 
 先读 [流程总览](references/workflow-map.md) 选择整套、少量样片或现成素材入口；再读当前入口的详细操作文档。
 
-用户要“一键做成套”时，先读 [references/full-album-workflow.md](references/full-album-workflow.md) 和 [直出 GIF 路线](references/direct-gif-workflow.md)。**所有从主体描述或参考图开始的新生成任务，先只生成一张主体锚图，展示这张具体图片并等待用户明确确认；确认前禁止生成任何动作 GIF、动作静帧、整格图、关键姿势或视频。** 用户要求“一键”“直接完成”也不能跳过这个停点。确认后按计划逐张优先生成 Images 2.6 GIF，验收身份、动作、背景和首尾循环；仅对不适合或不合格的项按已核对费用回退到独立首帧→视频→GIF。不要预先为整套生成静帧与视频。所有 GIF 达标后，按 [附加素材与打包规则](references/album-submission-assets.md) 制作横幅、封面、图标及默认成对的赞赏图，再打包为中文命名 ZIP。`album_workflow.py plan` 固定数量、动作和两条路线的预算；`preflight/authorize-batch/run` 仅用于实际启用的外部视频回退批次，不能冒充直出 GIF 调用。`pack --asset-dir ...` 接受同背景模式下来源不同但均合格的 GIF。当前下方九宫格整格视频流程仅用于现有网格素材或用户明确选择的整格路线。
+用户要“一键做成套”时，先读 [references/full-album-workflow.md](references/full-album-workflow.md) 和所选生成路线。**所有从主体描述或参考图开始的新生成任务，先只生成一张主体锚图，展示这张具体图片并等待用户明确确认；确认前禁止生成任何动作 GIF、动作静帧、整格图、关键姿势或视频。** 用户要求“一键”“直接完成”也不能跳过这个停点。确认后按计划逐张生成直出 GIF 或透明姿态图集，验收身份、动作、背景和首尾循环；仅对不适合或不合格的项按已核对费用回退到独立首帧→视频→GIF。不要预先为整套生成静帧与视频。所有 GIF 达标后，按 [附加素材与打包规则](references/album-submission-assets.md) 制作横幅、封面、图标及默认成对的赞赏图，再打包为中文命名 ZIP。`album_workflow.py plan --generation-mode direct-gif|pose-atlas-local` 固定数量、动作和选路预算；`preflight/authorize-batch/run` 仅用于实际启用的外部视频回退批次，不能冒充直出 GIF 调用。`pack --asset-dir ...` 接受同背景模式下来源不同但均合格的 GIF。当前下方九宫格整格视频流程仅用于现有网格素材或用户明确选择的整格路线。
 
 成品的边缘质量按最终 240×240 GIF 判断，不能只看源视频或连续 Alpha 的 WebP。绿幕与主体同色时先查主体内部 Alpha：固定绿幕只在识别出的色键区域修正透明度，不按颜色全域去绿；GIF 阈值也不能把主体本色计作漏色。出现轮廓毛刺时，先从已生成的 RGBA 帧本地修边并重导；若透明 GIF 的硬边仍不可接受，可在用户接受底色时额外交付柔边浅底版，并明确它是不透明的。`album_workflow.py pack` 按计划的 `background_mode` 验收：透明底需真实透明像素；保留背景需每帧完全不透明。同套不能混装。具体诊断、修复和两种版本的复检见 [references/output-contract.md](references/output-contract.md#240px-gif-边缘质量)。
 
@@ -25,7 +25,7 @@ Create a usable animated sticker pack. Prefer direct GPT Image 2.6 GIF generatio
 
 ## 单张样片与整格视频入口
 
-用户明确要样片时，仍须先只生成一张主体锚图、展示并等待确认，之后按指定数量优先做独立直出 GIF；不因样片数量碰巧达到 8 张就当作整套。以下默认 3×3、先静态整格图再生成一段整格视频的规则只用于现成网格或用户明确选择的整格路线；若整格图也需新生成，同样先过主体图确认。各入口都沿用主体特征、背景模式、费用确认、凭据保护和最终质量检查的要求。
+用户明确要样片时，仍须先只生成一张主体锚图、展示并等待确认，之后按已选路线制作指定数量；不因样片数量碰巧达到 8 张就当作整套。以下默认 3×3、先静态整格图再生成一段整格视频的规则只用于现成网格或用户明确选择的整格路线；若整格图也需新生成，同样先过主体图确认。各入口都沿用主体特征、背景模式、费用确认、凭据保护和最终质量检查的要求。
 
 ### IP identity and prompt principles
 

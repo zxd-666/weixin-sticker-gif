@@ -17,7 +17,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from album_workflow import (batch_preflight, bind_anchor, build_plan, package,
-                            reactions_from_text, run_batch)  # noqa: E402
+                            reactions_from_text, run_batch, validate_plan)  # noqa: E402
 from manage_job_state import create_state, verify_state  # noqa: E402
 from subject_anchor import approve, verify_approval  # noqa: E402
 
@@ -92,6 +92,23 @@ class AlbumWorkflowTests(unittest.TestCase):
             reactions_from_text("收到,大笑,抱抱")
         with self.assertRaises(ValueError):
             reactions_from_text("收到," * 8)
+
+    def test_pose_atlas_plan_budgets_image_calls_and_requires_transparency(self) -> None:
+        args = argparse.Namespace(name="小猫", subject_description="黑猫，黄眼睛", reference_image=None,
+                                  approved_anchor=None, subject_type="fictional", style="2D 手绘",
+                                  reactions=None, background_mode="transparent",
+                                  generation_mode="pose-atlas-local")
+        plan = build_plan(args)
+        validate_plan(plan)
+        self.assertEqual(plan["generation"]["preferred"], "pose-atlas-local")
+        self.assertEqual(plan["call_budget"]["pose_atlas_calls_max"], 8)
+        self.assertEqual(plan["call_budget"]["direct_gif_calls"], 0)
+        plan["call_budget"]["pose_atlas_calls_max"] = 7
+        with self.assertRaisesRegex(ValueError, "调用上限"):
+            validate_plan(plan)
+        args.background_mode = "opaque"
+        with self.assertRaisesRegex(ValueError, "只支持透明底"):
+            build_plan(args)
 
     def test_pack_requires_complete_valid_album(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
